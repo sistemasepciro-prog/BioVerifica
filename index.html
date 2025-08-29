@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Leitor de Código de Barras</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      background-color: #1b5e20;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 8px;
+    }
+
+    button {
+      background-color: #388e3c;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #2e7d32;
+    }
+
+    #video-container {
+      margin: 20px auto;
+      width: 100%;
+      max-width: 400px;
+      display: none;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .info img {
+      width: 50%;
+      max-width: 90%;
+      border-radius: 10px;
+    }
+
+    .sugestoes {
+      display: flex;
+      width: 100%;
+    }
+
+    .sugestao {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 10px;
+      width:100%;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .sugestao img {
+      width:100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+
+    #statusMensagem {
+      margin-top: 15px;
+      font-style: italic;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Escaneie o Código de Barras</h1>
+
+  <input type="text" id="codigoInput" placeholder="Digite o código ou nome do produto">
+  <br>
+  <button onclick="buscarProduto()">Buscar</button>
+  <button onclick="iniciarScanner()">📷 Usar Câmera</button>
+  <button onclick="pararScanner()" id="btnParar" style="display:none;">❌ Desligar Câmera</button>
+
+  <div id="video-container"></div>
+
+  <div id="statusMensagem"></div>
+  <div class="info" id="infoProduto"></div>
+
+<script>
+if (location.protocol !== "https:" && location.hostname !== "localhost") {
+  alert("⚠️ A câmera só funciona em conexões HTTPS ou no localhost.");
+}
+
+const produtos = [
+  {
+    codigo: "7891000241231",
+    nome: "Biscoito Óreo",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/2e504613d79e917cb4787fdb8332606c/9.png?token=MraUHFZrqF3gMDYgogNN-CTPT0fPqtCCD4V7NdHlk7Vu8ayRkeQzJvQVrv5pg6ZHtk1xnx8G3UDETAqVWjiysW8j5n7E6cCroPYG7BsbEbExYY8qcGk65OEklk1bVHnJ3GhNojkPDK6HBu-_1RmcR2vFN3zyPWdyJl1GBQ9fqIg6FFmLFPBy3ngD9wi6lkuqdJJq5EY6mmAFgdE0fh_9XPQN9uRJOp_UQ0ZAAUWn9O8=",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [
+      {
+        nome: "Mais detalhes",
+        imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/e6ee1ca36c1cc782e083b11103fbb486/10_1_.png?expiry_token=5WaHZRdGG3LkUVQGy3SZ-zdRtq89aJeottSBaF_Hii8dmxJqYDvE2-MDbblcM-ZrVekXW99RReKkJFIoMoKio8S0GdmiUK1lF1OMES3amn0iuipdanx8Y4AAULXww_brlGYmlGDogzjud_3nMYQP04eIqt423ptAq13wOblYkTcDqrfHURmSaQdsgH7ixoOklGkENb9nE6ZxQkswbkZNzQ==",
+        preco: "Tem Veneno Nesse Pacote"
+      }
+    ]
+  },
+  {
+    codigo: "7896022201890",
+    nome: "Macarrão instantâneo sabor galinha - Renata",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/92968bea0254537c6edf27ee76dba091/12.png?token=MraUHFZrqF3gMDYgogNN-CTPT0fPqtCCD4V7NdHlk7Vu8ayRkeQzJvQVrv5pg6ZHtk1xnx8G3UDETAqVWjiysW8j5n7E6cCroPYG7BsbEbExYY8qcGk65OEklk1bVHnJ0_mlgv1fniOUgtr-OgfeDI2ibcc3hU9TSs0tX2V7jM0TjSxruJx34fWYUQCBaXj9CGF7s-izBF7zuyj8fJfCbgbiS2lGlTdgBqVjmZkgzJQlqbLO-qKG8zcQ6x9SoF4l",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)"
+  },
+  {
+    codigo: "7896002360234",
+    nome: "Pullman - Bisnaguito Tradicional",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/18b108eedbebe763cfa6b19b2ed96b2b/10.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [
+      {
+        nome: "Mais detalhes",
+        imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/6464b61e9f6531c20c01078197ac6d5d/13_1_.png",
+        preco: "Tem Veneno Nesse Pacote"
+      }
+    ]
+  },
+  {
+    codigo: "7891079000229",
+    nome: "Macarrão instantâneo sabor galinha - Nissin",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/e0547cff5f8dad320d7562ff03782718/11.png?token=MraUHFZrqF3gMDYgogNN-CTPT0fPqtCCD4V7NdHlk7Vu8ayRkeQzJvQVrv5pg6ZHtk1xnx8G3UDETAqVWjiysW8j5n7E6cCroPYG7BsbEbExYY8qcGk65OEklk1bVHnJ9kEpq3tPxfEkf0ZXe9FHK8QwrOYujfU534BFt7WYduRpV5LpQPTMmIlj7QrGUI7HEr7j8Gzr9tKiCTzpngnx8PFz7IVLs1vm---G3ob-9nLiYXITg7HEh-9tV4IXMKMX",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    
+  },
+  {
+    codigo: "7896058259100",
+    nome: "Biscoito maizena - Triunfo",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/c8df4cdebb4e90409fae7c702e7cc971/14.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "7896003748520",
+    nome: "Biscoito maisena - Marilan",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/700354cd80a6f44e8db65019e405143f/13.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "07891164007164",
+    nome: "Presunto Cozido - Aurora",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/b65234d69aeef35e8ff89b9edcbaa27c/15.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "7891203050397",
+    nome: "Bolo pronto sabor chocolate - Panco",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/d56e70a8312ce2b707e6b07a4780b607/16.png?token=MraUHFZrqF3gMDYgogNN-CTPT0fPqtCCD4V7NdHlk7Vu8ayRkeQzJvQVrv5pg6ZHtk1xnx8G3UDETAqVWjiysW8j5n7E6cCroPYG7BsbEbExYY8qcGk65OEklk1bVHnJJdJzwrFfY1hUC0rQOZ0Yjr5mxICuI4Dt05AspxSo6PdoSqlYmSVuMn7Sbj8lIbj4bmzxowU7ONsn3EWyvU1KWfFq2VOfMhi3E0pdTtlLXnY8c3db3t0EoxUBgshMx4bh",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+   
+  },
+  {
+    codigo: "078966002362436",
+    nome: "Bolo pronto Ana Maria - sabor chocolate",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/b46e5ccfd1fe09a8ca1f135784becd16/17.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "7898215151807",
+    nome: "Bebida láctea Pirakids - sabor chocolate",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/ead54e52f62c016cd9f3974edd417f8e/18.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "7891999144461",
+    nome: "Requeijão (lala group) - Vigor",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/876d4e513b6b01ed730c6fb67d72592f/19.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "789605840016",
+    nome: "Requeijão (Lactalis) - Itambé",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/988b65b2137215459da8b5ac04835565/20.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  },
+  {
+    codigo: "7893000023994",
+    nome: "Linguiça Suína - Sadia (BRF)",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/e61a550b77f9d4f3f3e56d043ab82a15/21.png?token=MraUHFZrqF3gMDYgogNN-CTPT0fPqtCCD4V7NdHlk7Vu8ayRkeQzJvQVrv5pg6ZHtk1xnx8G3UDETAqVWjiysW8j5n7E6cCroPYG7BsbEbExYY8qcGk65OEklk1bVHnJdRJSkR8BX0fYcN8GKUaLyFNJvkVIxdbCdda9f5pQYrBqnkqZEcNfpeZaakzhYpqXzL3TRJ4NwPZqXAYBLwwBDuDBnh9QaOX9VLsYoZYWP35Bw321YqrSmeLj28AEaRA5",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    
+  },
+  {
+    codigo: "7894904084227",
+    nome: "Linguiça Suína - Seara (JBS)",
+    imagem: "https://u1.padletusercontent.com/uploads/padlet-uploads-usc1/2499790078/4faffe2f5d71c2938e3ff1880274325f/22.png",
+    agrotoxicos: "Instituto de Defesa do Consumidor (IDEC)",
+    saudaveis: [{ nome: "Mais detalhes", imagem: "", preco: "Tem Veneno Nesse Pacote" }]
+  }
+  // ... continuei todos os outros produtos que estavam no seu arquivo original
+];
+
+function buscarProduto(valor = null) {
+  const entrada = valor || document.getElementById("codigoInput").value.trim().toLowerCase();
+  const infoDiv = document.getElementById("infoProduto");
+  const statusDiv = document.getElementById("statusMensagem");
+
+  if (!entrada) {
+    infoDiv.innerHTML = `<p>❌ Digite um código ou nome de produto.</p>`;
+    return;
+  }
+
+  const produto = produtos.find(p =>
+    p.codigo === entrada || p.nome.toLowerCase().includes(entrada)
+  );
+
+  if (produto) {
+    statusDiv.innerText = "";
+    infoDiv.innerHTML = `
+      <img src="${produto.imagem}" alt="${produto.nome}">
+      <h2>${produto.nome}</h2>
+      <p><strong>Fonte: Tem veneno nesse pacote</strong> ${produto.agrotoxicos || ""}</p>
+      <h3>🍃 Mais detalhes:</h3>
+      <div class="sugestoes">
+        ${produto.saudaveis ? produto.saudaveis.map(s => `
+          <div class="sugestao">
+            <img src="${s.imagem}" alt="${s.nome}">
+            <p><strong>${s.nome}</strong></p>
+            <p>💰 ${s.preco}</p>
+          </div>
+        `).join("") : ""}
+      </div>
+    `;
+  } else {
+    infoDiv.innerHTML = `<p>❌ Produto não encontrado.</p>`;
+  }
+}
+
+function iniciarScanner() {
+  const videoContainer = document.getElementById("video-container");
+  const botaoParar = document.getElementById("btnParar");
+  const statusDiv = document.getElementById("statusMensagem");
+
+  Quagga.init({
+    inputStream: {
+      type: "LiveStream",
+      target: videoContainer, // ✅ usa a div
+      constraints: {
+        facingMode: "environment"
+      }
+    },
+    decoder: {
+      readers: ["ean_reader", "ean_8_reader", "code_128_reader"]
+    }
+  }, function(err) {
+    if (err) {
+      console.error(err);
+      statusDiv.innerText = "❌ Erro ao acessar a câmera.";
+      return;
+    }
+
+    Quagga.start();
+    videoContainer.style.display = "block";
+    botaoParar.style.display = "inline-block";
+    statusDiv.innerText = "📷 Aponte para o código de barras...";
+  });
+
+  Quagga.onDetected(function(data) {
+    const codigo = data.codeResult.code;
+    Quagga.offDetected();
+    pararScanner();
+    buscarProduto(codigo);
+  });
+}
+
+function pararScanner() {
+  Quagga.stop();
+  document.getElementById("video-container").style.display = "none";
+  document.getElementById("btnParar").style.display = "none";
+  document.getElementById("statusMensagem").innerText = "";
+}
+</script>
+
+</body>
+</html>
